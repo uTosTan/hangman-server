@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font: 13px Helvetica, Arial;
+      }
+      form {
+        background: #000;
+        padding: 3px;
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+      }
+      form input {
+        border: 0;
+        padding: 10px;
+        width: 90%;
+        margin-right: 0.5%;
+      }
+      form button {
+        width: 9%;
+        background: rgb(130, 224, 255);
+        border: none;
+        padding: 10px;
+      }
+      #messages {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+      }
+      #messages li {
+        padding: 5px 10px;
+      }
+      #messages li:nth-child(odd) {
+        background: #eee;
+      }
+      a {
+        padding: 2px;
+      }
+      .left {
+        float: left;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="left" style="width: 200px">
+      Room:
+      <div id="roomDisplay"></div>
+      Host:
+      <div id="hostDisplay"></div>
+      Players:
+      <div id="players"></div>
+      <button id="start" style="display:none">Start</button>
+    </div>
+    <div class="left">
+      <input id="word" /><button id="host">Host</button>
+      <input id="room" /><button id="join">Join</button>
+      <p id="channelname"></p>
+      <p id="blanks"></p>
+      <p id="alphabet"></p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+      $(function() {
+        window.blanks = [];
+        window.alphabet = Array.from("abcdefghijklmnopqrstuvwxyz");
+        window.attempts = {};
+        window.players = [];
+        window.isHost = false;
+        window.started = false;
+
+        const PLAYER_LEAVE_ROOM = "PLAYER_LEAVE_ROOM";
+        const PLAYER_JOIN_ROOM = "PLAYER_JOIN_ROOM";
+
+        const HOST_REQUEST = "HOST_REQUEST";
+        const INITIATE_ROOM = "INITIATE_ROOM";
+        const SEND_BLANKS = "SEND_BLANKS";
+        const JOIN_REQUEST = "JOIN_REQUEST";
+        const INITIATE_PLAYER = "INITIATE_PLAYER";
+
+        const START_GAME = "START_GAME";
+
+        const GAME_ERROR = "GAME_ERROR";
+        const GAME_WON = "GAME_WON";
+        const GAME_LOST = "GAME_LOST";
+        const GAME_STARTED = "GAME_STARTED";
+
+        const ATTEMPT_LETTER = "ATTEMPT_LETTER";
+        const ATTEMPT_RESULT = "ATTEMPT_RESULT";
+
+        for (let i = 0; i < window.alphabet.length; i++) {
+          const element = window.alphabet[i];
+          $("#alphabet").append(
+            $("<a>", {
+              href: "#",
+              text: element,
+              id: element,
+              class: "letter",
+              data: { letter: element }
+            })
+          );
+        }
+
+        var socket = io();
+
+        socket.on(SEND_BLANKS, function(blanks) {
+          $("#blanks").html(blanks);
+        });
+
+        socket.on(INITIATE_ROOM, function(name, host) {
+          $("#channelname").html(name);
+          $("#roomDisplay").html(name);
+          $("#hostDisplay").html(host);
+        });
+
+        socket.on(PLAYER_JOIN_ROOM, function(id) {
+          window.players.push(id);
+          $("#players").html(window.players.join("<br>"));
+        });
+
+        socket.on(INITIATE_PLAYER, function(name, host, ids) {
+          window.players = JSON.parse(ids);
+          $("#players").html(window.players.join("<br>"));
+          $("#roomDisplay").html(name);
+          $("#hostDisplay").html(host);
+        });
+
+        socket.on(PLAYER_LEAVE_ROOM, function(id) {
+          window.players.splice(window.players.indexOf(id), 1);
+          $("#players").html(window.players.join("<br>"));
+        });
+
+        socket.on(GAME_STARTED, function() {
+          window.started = true;
+          $("#start").hide();
+        });
+
+        socket.on(GAME_ERROR, function(msg) {
+          alert("Error: " + msg);
+        });
+
+        socket.on(ATTEMPT_RESULT, function(letter, found) {
+          if (found) {
+            $("#" + letter)
+              .removeClass("letter")
+              .css("color", "green")
+              .css("cursor", "not-allowed");
+          } else {
+            $("#" + letter)
+              .removeClass("letter")
+              .css("color", "red")
+              .css("cursor", "not-allowed");
+          }
+        });
+
+        $("#host").click(function(e) {
+          window.isHost = true;
+          $("#start").show();
+          socket.emit(HOST_REQUEST, $("#word").val());
+        });
+
+        $("#join").click(function(e) {
+          socket.emit(JOIN_REQUEST, $("#room").val());
+        });
+
+        $(".letter").click(function(e) {
+          e.preventDefault();
+          socket.emit(ATTEMPT_LETTER, $(this).data("letter"));
+        });
+
+        $("#start").click(function(e) {
+          socket.emit(START_GAME);
+        });
+      });
+    </script>
+  </body>
+</html>
