@@ -10,10 +10,6 @@ const app = express();
 const server = http.createServer(app);
 const io = socketio(server);
 
-app.get("/rooms", (req, res) => {
-  res.json("works");
-});
-
 app.get("/", function(req, res) {
   res.sendFile(__dirname + "/index.html");
 });
@@ -24,8 +20,6 @@ app.get("/rooms", function(req, res) {
   res.send(
     JSON.stringify(Room.getAll(), function(key, value) {
       if (key === "socket") {
-        return undefined;
-      } else if (key === "host") {
         return undefined;
       } else {
         return value;
@@ -50,7 +44,7 @@ app.get("/players", (req, res) => {
   );
 });
 
-server.listen(3000, () => {
+server.listen(3001, () => {
   console.log("Listening on 3000");
 });
 

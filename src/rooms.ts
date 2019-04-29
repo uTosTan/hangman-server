@@ -26,7 +26,7 @@ interface Room {
   failCount: number;
   win: boolean;
   loss: boolean;
-  host: Socket;
+  host: string;
   maxPlayers: 4;
   turn: number;
   started: boolean;
@@ -34,6 +34,7 @@ interface Room {
 
 interface Player {
   socketId: string;
+  nickname: string;
   attemptedLetters: Array<string>;
 }
 
@@ -68,6 +69,7 @@ const addPlayer = (room: string, nickname: string, socket: Socket) => {
     Player.setRoom(room, socket.id);
     rooms[room].players[socket.id] = {
       socketId: socket.id,
+      nickname: nickname,
       attemptedLetters: []
     };
     rooms[room].count++;
@@ -81,10 +83,10 @@ const addPlayer = (room: string, nickname: string, socket: Socket) => {
     socket.emit(
       INITIATE_PLAYER,
       room,
-      rooms[room].host.id,
-      JSON.stringify(rooms[room].playersArray)
+      rooms[room].host,
+      JSON.stringify(rooms[room].playersArray.map((socketId) => rooms[room].players[socketId].nickname))
     );
-    socket.to(room).emit(PLAYER_JOIN_ROOM, socket.id);
+    socket.to(room).emit(PLAYER_JOIN_ROOM, socket.id, nickname);
   } else {
     socket.emit(GAME_ERROR, "Unable to join room");
   }
@@ -94,7 +96,7 @@ const startGame = (room: string, socket: Socket, io: Server) => {
   if (
     room &&
     room in rooms &&
-    rooms[room].host.id === socket.id &&
+    rooms[room].host === socket.id &&
     !rooms[room].started &&
     rooms[room].playersArray.length > 0
   ) {
@@ -164,7 +166,16 @@ const host = (word: string, socket: Socket, nickname: string) => {
   socket.join(randomRoom);
   Player.setRoom(randomRoom, socket.id);
   rooms[randomRoom] = createRoom(randomRoom, socket, word);
-  socket.emit(INITIATE_ROOM, randomRoom, socket.id);
+
+  rooms[randomRoom].players[socket.id] = {
+    socketId: socket.id,
+    nickname: nickname,
+    attemptedLetters: []
+  };
+  rooms[randomRoom].count++;
+  rooms[randomRoom].playersArray.push(socket.id);
+
+  socket.emit(INITIATE_ROOM, randomRoom, nickname, socket.id);
   socket.emit(SEND_BLANKS, JSON.stringify(rooms[randomRoom].blanks));
 };
 
@@ -181,7 +192,7 @@ const createRoom = (room: string, socket: Socket, word: string): Room => {
     failCount: 0,
     win: false,
     loss: false,
-    host: socket,
+    host: socket.id,
     maxPlayers: 4,
     turn: undefined,
     started: false
